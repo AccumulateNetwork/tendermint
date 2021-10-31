@@ -175,7 +175,7 @@ mutually exclusive.
 [rpc-service]: https://docs.tendermint.com/master/rpc/
 [rpc-methods]: https://github.com/tendermint/tendermint/blob/master/internal/rpc/core/routes.go#L12
 [events]: ./rfc-005-event-system.rst
-[rpc-transport]: ./rfc-002-ipc-ecosystem.md#L93
+[rpc-transport]: ./rfc-002-ipc-ecosystem.md#rpc-transport
 [ws]: https://datatracker.ietf.org/doc/html/rfc6455
 [json-response]: https://www.jsonrpc.org/specification#response_object
 [json-notify]: https://www.jsonrpc.org/specification#notification
