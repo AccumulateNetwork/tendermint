@@ -270,7 +270,7 @@ func (txmp *TxMempool) CheckTx(
 		}
 
 		txmp.logger.Debug("tx exists already in cache", "tx_hash", tx.Hash())
-		return nil
+		return types.ErrTxInCache
 	}
 
 	if ctx == nil {
