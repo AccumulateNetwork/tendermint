@@ -37,6 +37,7 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
+	db "github.com/tendermint/tm-db"
 )
 
 // nodeImpl is the highest level interface to a full Tendermint node.
@@ -58,6 +59,9 @@ type nodeImpl struct {
 	nodeInfo    types.NodeInfo
 	nodeKey     types.NodeKey // our node privkey
 	isListening bool
+
+	// databases
+	databases []db.DB
 
 	// services
 	eventBus         *types.EventBus // pub/sub for services
@@ -123,6 +127,16 @@ func makeNode(config *cfg.Config,
 	genesisDocProvider genesisDocProvider,
 	dbProvider cfg.DBProvider,
 	logger log.Logger) (service.Service, error) {
+
+	var databases []db.DB
+	ogDbProvider := dbProvider
+	dbProvider = func(cfg *cfg.DBContext) (db.DB, error) {
+		db, err := ogDbProvider(cfg)
+		if err == nil && db != nil {
+			databases = append(databases, db)
+		}
+		return db, err
+	}
 
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
@@ -425,6 +439,8 @@ func makeNode(config *cfg.Config,
 		addrBook:    addrBook,
 		nodeInfo:    nodeInfo,
 		nodeKey:     nodeKey,
+
+		databases: databases,
 
 		stateStore:       stateStore,
 		blockStore:       blockStore,
@@ -819,6 +835,12 @@ func (n *nodeImpl) OnStop() {
 		if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
 			// Error from closing listeners, or context timeout:
 			n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
+		}
+	}
+
+	for _, db := range n.databases {
+		if err := db.Close(); err != nil {
+			n.Logger.Error("Database Close", "err", err)
 		}
 	}
 }
