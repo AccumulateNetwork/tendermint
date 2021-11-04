@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -40,6 +41,9 @@ func (env *Environment) Subscribe(ctx *rpctypes.Context, query string) (*ctypes.
 	sub, err := env.EventBus.Subscribe(subCtx, addr, q, subBufferSize)
 	if err != nil {
 		return nil, err
+	}
+	if sub == nil {
+		return nil, errors.New("node is stopped")
 	}
 
 	// Capture the current ID, since it can change in the future.
