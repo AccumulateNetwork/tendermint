@@ -74,13 +74,25 @@ func (b *EventBus) NumClientSubscriptions(clientID string) int {
 	return b.pubsub.NumClientSubscriptions(clientID)
 }
 
+func checkSub(sub *tmpubsub.Subscription, err error) (Subscription, error) {
+	if sub != nil {
+		return sub, err
+	}
+
+	// A nil-valued *tmpubsub.Subscription is still a valid implementation of
+	// Subscription. Internally, interface values are `(concrete-type, value)`.
+	// In this case, it would be `(*tmpubsub.Subscription, nil)`. That will
+	// cause panics, so instead we need to explicitly return nil.
+	return nil, err
+}
+
 func (b *EventBus) Subscribe(
 	ctx context.Context,
 	subscriber string,
 	query tmpubsub.Query,
 	outCapacity ...int,
 ) (Subscription, error) {
-	return b.pubsub.Subscribe(ctx, subscriber, query, outCapacity...)
+	return checkSub(b.pubsub.Subscribe(ctx, subscriber, query, outCapacity...))
 }
 
 // This method can be used for a local consensus explorer and synchronous
@@ -90,7 +102,7 @@ func (b *EventBus) SubscribeUnbuffered(
 	subscriber string,
 	query tmpubsub.Query,
 ) (Subscription, error) {
-	return b.pubsub.SubscribeUnbuffered(ctx, subscriber, query)
+	return checkSub(b.pubsub.SubscribeUnbuffered(ctx, subscriber, query))
 }
 
 func (b *EventBus) Unsubscribe(ctx context.Context, args tmpubsub.UnsubscribeArgs) error {
