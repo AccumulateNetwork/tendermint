@@ -177,7 +177,7 @@ func (r *Reactor) handleMempoolMessage(envelope p2p.Envelope) error {
 		}
 
 		for _, tx := range protoTxs {
-			if err := r.mempool.CheckTx(context.Background(), types.Tx(tx), nil, txInfo); err != nil {
+			if err := r.mempool.CheckTx(context.Background(), types.Tx(tx), nil, txInfo); err != nil && !errors.Is(err, types.ErrTxInCache) {
 				logger.Error("checktx failed for tx", "tx", fmt.Sprintf("%X", mempool.TxHashFromBytes(tx)), "err", err)
 			}
 		}
