@@ -31,12 +31,12 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
-	github.com/tendermint/tm-db v0.6.4
+	github.com/tendermint/tm-db v0.6.7
 	github.com/vektra/mockery/v2 v2.9.4
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	golang.org/x/net v0.0.0-20211005001312-d4b1ae081e3b
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/grpc v1.41.0
+	google.golang.org/grpc v1.44.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	pgregory.net/rapid v0.4.7
 )
