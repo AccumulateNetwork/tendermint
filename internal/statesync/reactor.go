@@ -3,6 +3,7 @@ package statesync
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -323,6 +324,12 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 	if err != nil {
 		return sm.State{}, err
 	}
+
+	s2, _ := state.ToProto()
+	b, _ := s2.Marshal()
+	fmt.Printf("State: %x\n", b)
+	b, _ = json.Marshal(commit)
+	fmt.Printf("Commit: %s\n", b)
 
 	err = r.stateStore.Bootstrap(state)
 	if err != nil {

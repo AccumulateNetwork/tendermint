@@ -31,6 +31,7 @@ func main() {
 		cmd.VersionCmd,
 		cmd.InspectCmd,
 		cmd.RollbackStateCmd,
+		cmd.RestoreStateCmd,
 		cmd.MakeKeyMigrateCommand(),
 		debug.DebugCmd,
 		cli.NewCompletionCmd(rootCmd, true),
