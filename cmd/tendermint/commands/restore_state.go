@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	tmconfig "github.com/tendermint/tendermint/config"
@@ -22,10 +23,24 @@ var RestoreStateCmd = &cobra.Command{
 }
 
 func restoreState(cmd *cobra.Command, args []string) {
-	b, err := hex.DecodeString(args[0])
-	if err != nil {
-		tmos.Exit(fmt.Sprintf("Error parsing state: %v", err))
+	var b []byte
+	var err error
+	if strings.Contains(args[0], ".hex") {
+		buf, err := os.ReadFile(args[0])
+		if err != nil {
+			tmos.Exit(fmt.Sprintf("Error opening state dump: %v", err))
+		}
+		b, err = hex.DecodeString(string(buf))
+		if err != nil {
+			tmos.Exit(fmt.Sprintf("Error parsing state: %v", err))
+		}
+	} else {
+		b, err = hex.DecodeString(args[0])
+		if err != nil {
+			tmos.Exit(fmt.Sprintf("Error parsing state: %v", err))
+		}
 	}
+
 	stateProto := new(tmstate.State)
 	err = stateProto.Unmarshal(b)
 	if err != nil {
@@ -37,7 +52,17 @@ func restoreState(cmd *cobra.Command, args []string) {
 	}
 
 	var commit types.Commit
-	if err := json.Unmarshal([]byte(args[1]), &commit); err != nil {
+	var buf []byte
+	if strings.Contains(args[1], ".json") {
+		buf, err = os.ReadFile(args[1])
+		if err != nil {
+			tmos.Exit(fmt.Sprintf("Error opening commit dump: %v", err))
+		}
+
+	} else {
+		buf = []byte(args[1])
+	}
+	if err := json.Unmarshal(buf, &commit); err != nil {
 		tmos.Exit(fmt.Sprintf("Error parsing commit: %v", err))
 	}
 
@@ -51,7 +76,6 @@ func restoreState(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stdout, "Error closing block store: %v", err)
 		}
 	}()
-	blockStore := store.NewBlockStore(blockStoreDB)
 
 	stateDB, err := dbProvider(&tmconfig.DBContext{ID: "state", Config: config})
 	if err != nil {
@@ -69,8 +93,10 @@ func restoreState(cmd *cobra.Command, args []string) {
 		tmos.Exit(fmt.Sprintf("Error bootstrapping state store: %v", err))
 	}
 
+	blockStore := store.NewBlockStore(blockStoreDB)
 	err = blockStore.SaveSeenCommit(state.LastBlockHeight, &commit)
 	if err != nil {
 		tmos.Exit(fmt.Sprintf("Error storing last seen commit: %v", err))
 	}
+
 }

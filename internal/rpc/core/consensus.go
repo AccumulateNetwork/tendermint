@@ -47,6 +47,7 @@ func (env *Environment) Validators(
 	return &coretypes.ResultValidators{
 		BlockHeight: height,
 		Validators:  v,
+		Proposer:    validators.Proposer,
 		Count:       len(v),
 		Total:       totalCount}, nil
 }

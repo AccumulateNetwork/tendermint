@@ -344,6 +344,14 @@ func (app *localClient) ApplySnapshotChunkSync(
 	return &res, nil
 }
 
+func (app *localClient) LoadStateSnapshot(ctx context.Context, height uint64) (*types.StateSnapshot, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.LoadStateSnapshot(height)
+	return &res, nil
+}
+
 //-------------------------------------------------------
 
 func (app *localClient) callback(req *types.Request, res *types.Response) *ReqRes {

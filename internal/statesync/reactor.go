@@ -3,9 +3,11 @@ package statesync
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"sort"
@@ -325,11 +327,14 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		return sm.State{}, err
 	}
 
-	s2, _ := state.ToProto()
-	b, _ := s2.Marshal()
-	fmt.Printf("State: %x\n", b)
-	b, _ = json.Marshal(commit)
-	fmt.Printf("Commit: %s\n", b)
+	err = saveState(state)
+	if err != nil {
+		return sm.State{}, err
+	}
+	err = saveCommit(commit)
+	if err != nil {
+		return sm.State{}, err
+	}
 
 	err = r.stateStore.Bootstrap(state)
 	if err != nil {
@@ -347,6 +352,30 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 	}
 
 	return state, nil
+}
+
+func saveState(state sm.State) error {
+	s2, _ := state.ToProto()
+	b, _ := s2.Marshal()
+	f, err := os.Create("/tmp/tm-state.hex")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	f.WriteString(hex.EncodeToString(b))
+	fmt.Println("Saved state, AppHash=", hex.EncodeToString(state.AppHash))
+	return nil
+}
+
+func saveCommit(commit *types.Commit) error {
+	b, _ := json.Marshal(commit)
+	f, err := os.Create("/tmp/tm-commit.json")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	f.Write(b)
+	return nil
 }
 
 // Backfill sequentially fetches, verifies and stores light blocks in reverse
@@ -786,7 +815,7 @@ func (r *Reactor) handleParamsMessage(envelope p2p.Envelope) error {
 		if sp, ok := r.stateProvider.(*stateProviderP2P); ok {
 			select {
 			case sp.paramsRecvCh <- cp:
-			case <-time.After(time.Second):
+			case <-time.After(time.Second * 5):
 				return errors.New("failed to send consensus params, stateprovider not ready for response")
 			}
 		} else {
@@ -1081,6 +1110,11 @@ func (r *Reactor) initStateProvider(ctx context.Context, chainID string, initial
 		r.stateProvider, err = NewP2PStateProvider(ctx, chainID, initialHeight, providers, to, r.paramsCh.Out, spLogger)
 		if err != nil {
 			return fmt.Errorf("failed to initialize P2P state provider: %w", err)
+		}
+	} else if r.cfg.UseProxyApp {
+		r.stateProvider, err = NewProxyAppStateProvider(ctx, chainID, initialHeight, nil, to, r.paramsCh.Out, spLogger)
+		if err != nil {
+			return fmt.Errorf("failed to initialize proxy app state provider: %w", err)
 		}
 	} else {
 		r.stateProvider, err = NewRPCStateProvider(ctx, chainID, initialHeight, r.cfg.RPCServers, to, spLogger)

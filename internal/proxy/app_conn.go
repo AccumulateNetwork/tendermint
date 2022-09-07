@@ -52,6 +52,7 @@ type AppConnSnapshot interface {
 	OfferSnapshotSync(context.Context, types.RequestOfferSnapshot) (*types.ResponseOfferSnapshot, error)
 	LoadSnapshotChunkSync(context.Context, types.RequestLoadSnapshotChunk) (*types.ResponseLoadSnapshotChunk, error)
 	ApplySnapshotChunkSync(context.Context, types.RequestApplySnapshotChunk) (*types.ResponseApplySnapshotChunk, error)
+	LoadStateSnapshot(context.Context, uint64) (*types.StateSnapshot, error)
 }
 
 //-----------------------------------------------------------------------------------------
@@ -216,6 +217,10 @@ func (app *appConnSnapshot) ListSnapshotsSync(
 ) (*types.ResponseListSnapshots, error) {
 	defer addTimeSample(app.metrics.MethodTiming.With("method", "list_snapshots", "type", "sync"))()
 	return app.appConn.ListSnapshotsSync(ctx, req)
+}
+
+func (app *appConnSnapshot) LoadStateSnapshot(ctx context.Context, height uint64) (*types.StateSnapshot, error) {
+	return app.appConn.LoadStateSnapshot(ctx, height)
 }
 
 func (app *appConnSnapshot) OfferSnapshotSync(

@@ -170,6 +170,10 @@ func (app *PersistentKVStoreApplication) ApplySnapshotChunk(
 	return types.ResponseApplySnapshotChunk{Result: types.ResponseApplySnapshotChunk_ABORT}
 }
 
+func (app *PersistentKVStoreApplication) LoadStateSnapshot(u uint64) types.StateSnapshot {
+	return types.StateSnapshot{}
+}
+
 //---------------------------------------------
 // update validators
 

@@ -955,6 +955,9 @@ type StateSyncConfig struct {
 	// false (default), the RPC layer will be used.
 	UseP2P bool `mapstructure:"use-p2p"`
 
+	// TODO comment
+	UseProxyApp bool `mapstructure:"use-proxy-app"`
+
 	// If using RPC, at least two addresses need to be provided. They should be compatible
 	// with net.Dial, for example: "host.example.com:2125".
 	RPCServers []string `mapstructure:"rpc-servers"`

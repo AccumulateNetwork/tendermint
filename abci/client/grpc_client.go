@@ -2,6 +2,7 @@ package abciclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -29,6 +30,10 @@ type grpcClient struct {
 	addr  string
 	err   error
 	resCb func(*types.Request, *types.Response) // listens to all callbacks
+}
+
+func (cli *grpcClient) LoadStateSnapshot(ctx context.Context, u uint64) (*types.StateSnapshot, error) {
+	return nil, errors.New("LoadStateSnapshot is not supported for the GRPC protocol")
 }
 
 var _ Client = (*grpcClient)(nil)

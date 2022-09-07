@@ -62,6 +62,7 @@ type Client interface {
 	OfferSnapshotSync(context.Context, types.RequestOfferSnapshot) (*types.ResponseOfferSnapshot, error)
 	LoadSnapshotChunkSync(context.Context, types.RequestLoadSnapshotChunk) (*types.ResponseLoadSnapshotChunk, error)
 	ApplySnapshotChunkSync(context.Context, types.RequestApplySnapshotChunk) (*types.ResponseApplySnapshotChunk, error)
+	LoadStateSnapshot(context.Context, uint64) (*types.StateSnapshot, error)
 }
 
 //----------------------------------------

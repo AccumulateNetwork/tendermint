@@ -45,6 +45,10 @@ type socketClient struct {
 	resCb   func(*types.Request, *types.Response) // called on all requests, if set.
 }
 
+func (cli *socketClient) LoadStateSnapshot(ctx context.Context, u uint64) (*types.StateSnapshot, error) {
+	return nil, errors.New("LoadStateSnapshot is not supported for socket client")
+}
+
 var _ Client = (*socketClient)(nil)
 
 // NewSocketClient creates a new socket client, which connects to a given
