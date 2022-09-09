@@ -264,7 +264,7 @@ message ResponseApplySnapshotChunk {
 
 message StateSnapshot {
   uint64 height = 1;
-  repeated tendermint.types.LightBlock blocks = 2 [(gogoproto.nullable) = false];
+  repeated tendermint.types.LightBlock blocks = 2;
   tendermint.types.ConsensusParams consensus_params = 3;
 }
 

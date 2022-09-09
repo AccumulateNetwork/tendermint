@@ -180,14 +180,16 @@ func (s *syncer) SyncAny(
 	discoveryTime time.Duration,
 	requestSnapshots func(),
 ) (sm.State, *types.Commit, error) {
-	if discoveryTime != 0 && discoveryTime < minimumDiscoveryTime {
-		discoveryTime = minimumDiscoveryTime
-	}
+	if requestSnapshots != nil {
+		if discoveryTime != 0 && discoveryTime < minimumDiscoveryTime {
+			discoveryTime = minimumDiscoveryTime
+		}
 
-	if discoveryTime > 0 {
-		requestSnapshots()
-		s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
-		time.Sleep(discoveryTime)
+		if discoveryTime > 0 {
+			requestSnapshots()
+			s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
+			time.Sleep(discoveryTime)
+		}
 	}
 
 	// The app may ask us to retry a snapshot restoration, in which case we need to reuse
@@ -529,7 +531,7 @@ func (s *syncer) fetchChunks(ctx context.Context, snapshot *snapshot, chunks *ch
 }
 
 // requestChunk requests a chunk from a peer.
-func (s *syncer) requestChunk(snapshot *snapshot, chunk uint32) {
+func (s *syncer) requestChunk(snapshot *snapshot, index uint32) {
 	peer := s.snapshots.GetPeer(snapshot)
 	if peer == "" {
 		s.logger.Error("No valid peers found for snapshot", "height", snapshot.Height,
@@ -541,23 +543,41 @@ func (s *syncer) requestChunk(snapshot *snapshot, chunk uint32) {
 		"Requesting snapshot chunk",
 		"height", snapshot.Height,
 		"format", snapshot.Format,
-		"chunk", chunk,
+		"chunk", index,
 		"peer", peer,
 	)
 
-	msg := p2p.Envelope{
-		To: peer,
-		Message: &ssproto.ChunkRequest{
+	if peer == "*local" {
+		resp, err := s.conn.LoadSnapshotChunkSync(context.Background(), abci.RequestLoadSnapshotChunk{
 			Height: snapshot.Height,
 			Format: snapshot.Format,
-			Index:  chunk,
-		},
+			Chunk:  index,
+		})
+		if err != nil {
+			panic(fmt.Sprintln("LoadSnapshotChunkSync failed", err)) // FIXME
+		}
+		s.AddChunk(&chunk{
+			Height: snapshot.Height,
+			Format: snapshot.Format,
+			Index:  index,
+			Chunk:  resp.Chunk,
+			Sender: peer,
+		})
+	} else {
+		msg := p2p.Envelope{
+			To: peer,
+			Message: &ssproto.ChunkRequest{
+				Height: snapshot.Height,
+				Format: snapshot.Format,
+				Index:  index,
+			},
+		}
+		select {
+		case s.chunkCh <- msg:
+		case <-s.closeCh:
+		}
 	}
 
-	select {
-	case s.chunkCh <- msg:
-	case <-s.closeCh:
-	}
 }
 
 // verifyApp verifies the sync, checking the app hash, last block height and app version

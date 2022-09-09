@@ -3,11 +3,8 @@ package statesync
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"runtime/debug"
 	"sort"
@@ -272,8 +269,10 @@ func (r *Reactor) OnStop() {
 func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 	// We need at least two peers (for cross-referencing of light blocks) before we can
 	// begin state sync
-	if err := r.waitForEnoughPeers(ctx, 2); err != nil {
-		return sm.State{}, err
+	if !r.cfg.UseProxyApp { // Skip this for snapshot/state restore through local proxy app
+		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
+			return sm.State{}, err
+		}
 	}
 
 	r.mtx.Lock()
@@ -308,30 +307,31 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		r.mtx.Unlock()
 	}()
 
-	requestSnapshotsHook := func() {
-		// request snapshots from all currently connected peers
-		msg := p2p.Envelope{
-			Broadcast: true,
-			Message:   &ssproto.SnapshotsRequest{},
-		}
+	var requestSnapshotsHook func()
+	if !r.cfg.UseProxyApp {
+		requestSnapshotsHook = func() {
+			// request snapshots from all currently connected peers
+			msg := p2p.Envelope{
+				Broadcast: true,
+				Message:   &ssproto.SnapshotsRequest{},
+			}
 
-		select {
-		case <-ctx.Done():
-		case <-r.closeCh:
-		case r.snapshotCh.Out <- msg:
+			select {
+			case <-ctx.Done():
+			case <-r.closeCh:
+			case r.snapshotCh.Out <- msg:
+			}
+		}
+	} else {
+		snapshots, err := r.recentSnapshots(recentSnapshots)
+		if err != nil {
+			return sm.State{}, err
+		}
+		for _, snapshot := range snapshots {
+			r.syncer.AddSnapshot("*local", snapshot)
 		}
 	}
-
 	state, commit, err := r.syncer.SyncAny(ctx, r.cfg.DiscoveryTime, requestSnapshotsHook)
-	if err != nil {
-		return sm.State{}, err
-	}
-
-	err = saveState(state)
-	if err != nil {
-		return sm.State{}, err
-	}
-	err = saveCommit(commit)
 	if err != nil {
 		return sm.State{}, err
 	}
@@ -346,36 +346,16 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		return sm.State{}, fmt.Errorf("failed to store last seen commit: %w", err)
 	}
 
-	err = r.Backfill(ctx, state)
-	if err != nil {
-		r.Logger.Error("backfill failed. Proceeding optimistically...", "err", err)
+	if r.cfg.UseProxyApp {
+		r.storeLastBlock(state)
+	} else {
+		err = r.Backfill(ctx, state)
+		if err != nil {
+			r.Logger.Error("backfill failed. Proceeding optimistically...", "err", err)
+		}
 	}
 
 	return state, nil
-}
-
-func saveState(state sm.State) error {
-	s2, _ := state.ToProto()
-	b, _ := s2.Marshal()
-	f, err := os.Create("/tmp/tm-state.hex")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	f.WriteString(hex.EncodeToString(b))
-	fmt.Println("Saved state, AppHash=", hex.EncodeToString(state.AppHash))
-	return nil
-}
-
-func saveCommit(commit *types.Commit) error {
-	b, _ := json.Marshal(commit)
-	f, err := os.Create("/tmp/tm-commit.json")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	f.Write(b)
-	return nil
 }
 
 // Backfill sequentially fetches, verifies and stores light blocks in reverse
@@ -1112,7 +1092,7 @@ func (r *Reactor) initStateProvider(ctx context.Context, chainID string, initial
 			return fmt.Errorf("failed to initialize P2P state provider: %w", err)
 		}
 	} else if r.cfg.UseProxyApp {
-		r.stateProvider, err = NewProxyAppStateProvider(ctx, chainID, initialHeight, nil, to, r.paramsCh.Out, spLogger)
+		r.stateProvider, err = NewProxyAppStateProvider(ctx, chainID, initialHeight, r.conn)
 		if err != nil {
 			return fmt.Errorf("failed to initialize proxy app state provider: %w", err)
 		}
@@ -1186,4 +1166,30 @@ func (r *Reactor) BackFillBlocksTotal() int64 {
 	defer r.mtx.RUnlock()
 
 	return r.backfillBlockTotal
+}
+
+func (r *Reactor) storeLastBlock(state sm.State) error {
+	stateProvider := r.stateProvider.(*stateProviderProxyApp)
+	block := stateProvider.stateSnapshot.Blocks[0]
+
+	// save the signed headers
+	sigHdr, err := types.SignedHeaderFromProto(block.SignedHeader)
+	if err != nil {
+		return err
+	}
+	err = r.blockStore.SaveSignedHeader(sigHdr, state.LastBlockID)
+	if err != nil {
+		return err
+	}
+
+	// save the final batch of validators
+	validatorSet, err := types.ValidatorSetFromProto(block.ValidatorSet)
+	if err != nil {
+		return err
+	}
+	if err = r.stateStore.SaveValidatorSets(state.LastBlockHeight+1, state.LastBlockHeight, validatorSet); err != nil {
+		return err
+	}
+	return nil
+
 }

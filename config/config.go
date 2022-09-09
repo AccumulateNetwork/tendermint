@@ -1019,7 +1019,7 @@ func (cfg *StateSyncConfig) ValidateBasic() error {
 
 	// If we're not using the P2P stack then we need to validate the
 	// RPCServers
-	if !cfg.UseP2P {
+	if !cfg.UseP2P && !cfg.UseProxyApp {
 		if len(cfg.RPCServers) < 2 {
 			return errors.New("at least two rpc-servers must be specified")
 		}
