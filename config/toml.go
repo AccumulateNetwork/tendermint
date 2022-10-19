@@ -64,6 +64,16 @@ func WriteConfigFile(configFilePath string, config *Config) {
 	cmtos.MustWriteFile(configFilePath, buffer.Bytes(), 0644)
 }
 
+func WriteConfigFileSave(configFilePath string, config *Config) error {
+	var buffer bytes.Buffer
+
+	if err := configTemplate.Execute(&buffer, config); err != nil {
+		return err
+	}
+
+	return tmos.WriteFile(configFilePath, buffer.Bytes(), 0644)
+}
+
 // Note: any changes to the comments/variables/mapstructure
 // must be reflected in the appropriate struct in config/config.go
 const defaultConfigTemplate = `# This is a TOML config file.
