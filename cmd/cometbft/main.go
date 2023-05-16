@@ -14,6 +14,7 @@ import (
 func main() {
 	rootCmd := cmd.RootCmd
 	rootCmd.AddCommand(
+		cmd.SetAppVersionCommand,
 		cmd.GenValidatorCmd,
 		cmd.InitFilesCmd,
 		cmd.LightCmd,
